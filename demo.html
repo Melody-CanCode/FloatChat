@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Floatchat</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;700&display=swap" rel="stylesheet">
+<!-- Plotly -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet Heatmap -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; font-family: 'Raleway', system-ui, sans-serif; overflow: hidden; }
+body {
+  display: flex;
+  flex-direction: column;
+  transition: background 0.5s ease;
+}
+/* Default Theme (Dark) */
+body.dark {
+  background:
+    linear-gradient(rgba(0,43,69,0.3), rgba(94,200,242,0.3)),
+    url('https://images.unsplash.com/photo-1518563077661-23ad56581d77?w=1920&auto=format&fit=crop&q=80') no-repeat center center fixed;
+  background-size: cover;
+  color: white;
+}
+/* Light Theme (Solid Blue) */
+body.light {
+  background: #0077be; /* solid ocean blue */
+  background-attachment: fixed;
+  color: black;
+}
+/* Header + Footer */
+header, footer { color:white; padding:15px 30px; z-index:50; }
+header {
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+header h1 {
+  font-weight: 700;
+  font-size: 2.2rem;
+  margin:0;
+  background: linear-gradient(90deg, #00e5ff, #004e92);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header-buttons { display:flex; gap:12px; }
+.header-buttons .login-btn, .header-buttons .signup-btn {
+  padding: 8px 16px;
+  border:none;
+  cursor:pointer;
+  font-weight:700;
+  font-size:1rem;
+  transition:0.2s;
+}
+.login-btn { background:transparent; color:white; }
+.login-btn:hover { color:#00e5ff; }
+.signup-btn {
+  border-radius:25px;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.35);
+  color:white;
+}
+.signup-btn:hover { background: rgba(0,229,255,0.25); color:#00e5ff;}
+/* THEME BUTTON */
+.theme-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(12px);
+  color: white;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.theme-btn:hover {
+  background: rgba(0,229,255,0.25);
+  color: #00e5ff;
+}
+footer { text-align:center; font-size: 0.9rem; }
+/* MAIN CONTENT SPLIT */
+main {
+  flex: 1;
+  display: flex;
+  height: calc(100% - 120px);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+/* Left Nav + Chat Wrapper */
+.left-wrapper {
+  flex: 6;
+  display: flex;
+  overflow: hidden;
+  transition: flex 0.3s ease;
+}
+/* Navigation */
+nav {
+  width: 220px;
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  padding:16px;
+  gap:8px;
+}
+body.dark nav {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+body.light nav {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+nav a {
+  color:white;
+  text-decoration:none;
+  padding:10px 14px;
+  border-radius:8px;
+  font-weight:600;
+  transition:0.3s;
+  display:block;
+  cursor: pointer;
+}
+nav a:hover, nav a.active {
+  background: rgba(255,255,255,0.25);
+  color:#00e5ff;
+}
+#clear-chat-btn {
+  margin-top: auto;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.3s;
+}
+body.dark #clear-chat-btn {
+  background: rgba(255,255,255,0.15);
+  color:white;
+}
+body.light #clear-chat-btn {
+  background: rgba(255,255,255,0.15);
+  color:black;
+}
+#clear-chat-btn:hover {
+  background: rgba(0,229,255,0.25);
+  color:#00e5ff;
+}
+/* Left Panel */
+.left-panel {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  padding:20px;
+  overflow:hidden;
+  transition: all 0.3s ease;
+}
+/* Welcome Text + Bubble */
+#welcome-text { margin-left:20px; transition: opacity 0.7s ease; }
+#welcome-text.fade-out { opacity:0; }
+#welcome-text h2 { font-size:2.7rem; line-height:1.2; }
+#welcome-text h1 { font-size:3.5rem; margin:0 0 12px 0; line-height:1.2; }
+#welcome-text p { font-size:1.3rem; margin-top:12px; line-height:1.5; }
+#ai-desc-bubble {
+  width: 90%;
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  padding: 15px 20px;
+  margin-top: 20px;
+  transition: opacity 0.7s ease;
+}
+body.dark #ai-desc-bubble {
+  background: rgba(0,0,0,0.35);
+  color: #f0f0f0;
+}
+body.light #ai-desc-bubble {
+  background: rgba(255,255,255,0.15);
+  color: black;
+}
+#ai-desc-bubble.fade-out { opacity:0; }
+/* Spacing for AI desc list */
+#ai-desc-bubble ul {
+  margin-top: 12px;
+  padding-left: 20px;
+}
+#ai-desc-bubble ul li {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+/* Chat */
+.chat-container {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 80%;
+  max-width: 550px;
+  transition: all 0.3s ease;
+}
+/* OUTPUT */
+#output-bubble {
+  width: 100%;
+  height: 350px;
+  border-radius: 24px;
+  padding: 18px;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  z-index: 2;
+}
+body.dark #output-bubble {
+  background: rgba(0,0,0,0.35);
+  color: #f0f0f0;
+}
+body.light #output-bubble {
+  background: rgba(255,255,255,0.15);
+  color: black;
+}
+#output-bubble.show { display: flex; }
+/* Scrollbar Theme */
+#output-bubble::-webkit-scrollbar { width: 8px; }
+#output-bubble::-webkit-scrollbar-track {
+  background: transparent;
+}
+#output-bubble::-webkit-scrollbar-thumb { 
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+body.dark #output-bubble::-webkit-scrollbar-thumb { 
+  background: rgba(0, 229, 255, 0.3);
+}
+body.light #output-bubble::-webkit-scrollbar-thumb { 
+  background: rgba(0, 119, 190, 0.4);
+}
+/* Messages */
+.message {
+  margin: 8px 0;
+  padding: 12px 16px;
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 85%;
+  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.user-message { 
+  align-self: flex-end; 
+  background: rgba(0, 229, 255, 0.3);
+  color: white;
+  border: 1px solid #00e5ff;
+}
+.ai-message { 
+  align-self: flex-start; 
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+body.light .user-message {
+  background: rgba(0, 119, 190, 0.3);
+  color: black;
+  border: 1px solid #004e92;
+}
+body.light .ai-message {
+  background: rgba(255, 255, 255, 0.4);
+  color: black;
+}
+/* Chat Input */
+.chat-input-container {
+  width: 100%;
+  display: flex;
+  padding: 10px;
+  border-radius: 24px;
+  backdrop-filter: blur(12px);
+  gap: 10px;
+  z-index: 50;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+body.dark .chat-input-container {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: white;
+}
+body.light .chat-input-container {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: black;
+}
+.chat-input-container textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  color: inherit;
+  background: transparent;
+  resize: none;
+  line-height: 1.4;
+  max-height: 220px;
+}
+.chat-input-container textarea::placeholder { color: rgba(255,255,255,0.7); }
+body.light .chat-input-container textarea::placeholder { color: rgba(0,0,0,0.6); }
+.chat-input-container button {
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s;
+  background: rgba(255,255,255,0.2);
+  color: inherit;
+}
+.chat-input-container button:hover {
+  background: rgba(0,229,255,0.25);
+  color: #00e5ff;
+}
+/* Right Panel */
+.right-panel { 
+  flex: 4; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px; 
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+#plotly-container, #leaflet-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  padding: 10px;
+  transition: 0.3s;
+}
+body.dark #plotly-container, body.dark #leaflet-container {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+body.light #plotly-container, body.light #leaflet-container {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+#plotly-container:hover, #leaflet-container:hover { box-shadow: 0 0 20px rgba(0,229,255,0.4); }
+body:not(.chat-mode-vis) #plotly-container {
+  display: none;
+}
+/* Chat Mode Styles */
+body.chat-mode .left-wrapper {
+  flex: 1;
+}
+body.chat-mode .left-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+body.chat-mode .chat-container {
+  position: static;
+  transform: none;
+  width: 80%;
+  max-width: 550px;
+  height: 100%;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+body.chat-mode #output-bubble {
+  flex: 1;
+  height: auto;
+  max-height: none;
+  border-radius: 24px 24px 0 0;
+  margin-bottom: 0;
+  width: 100%;
+}
+body.chat-mode .chat-input-container {
+  width: 100%;
+}
+body.chat-mode .right-panel {
+  display: none;
+}
+/* Chat Mode with Visualizations (after response) */
+body.chat-mode-vis .left-wrapper {
+  flex: 3;
+}
+body.chat-mode-vis .right-panel {
+  flex: 2;
+  display: flex;
+}
+body.chat-mode-vis .left-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+body.chat-mode-vis .chat-container {
+  position: absolute;
+  bottom: 60px; /* Account for footer height */
+  left: 20px;
+  transform: none;
+  width: 90%;
+  max-width: 550px;
+  height: auto;
+  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin: 0;
+}
+body.chat-mode-vis #output-bubble {
+  height: 400px;
+  flex: none;
+  border-radius: 24px 24px 0 0;
+  margin-bottom: 12px;
+  width: 100%;
+}
+body.chat-mode-vis .chat-input-container {
+  width: 100%;
+}
+/* Responsive */
+@media (max-width: 900px) {
+  main { flex-direction: column; }
+  .left-wrapper, .right-panel { flex: unset; height: 50%; }
+  .chat-container { width: 90%; }
+  nav { width: 100%; flex-direction: row; border-radius: 12px; justify-content: space-around; }
+  body.chat-mode .left-wrapper, body.chat-mode-vis .left-wrapper { height: 100%; }
+  body.chat-mode main, body.chat-mode-vis main { flex-direction: column; }
+  body.chat-mode .left-panel, body.chat-mode-vis .left-panel { height: 100%; }
+  body.chat-mode .chat-container, body.chat-mode-vis .chat-container { width: 90%; }
+  body.chat-mode-vis .right-panel { height: 50%; }
+  body.chat-mode-vis .chat-container {
+    bottom: 70px; /* Adjust for footer in mobile */
+  }
+}
+</style>
+</head>
+<body class="dark">
+<header>
+  <h1>Floatchat</h1>
+  <div class="header-buttons">
+    <button class="theme-btn" id="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <button class="login-btn">Login</button>
+    <button class="signup-btn">Sign Up</button>
+  </div>
+</header>
+<main>
+  <div class="left-wrapper">
+    <nav>
+      <a href="#" id="dashboard-link" class="active">Dashboard</a>
+      <a href="#" id="chat-link">Chat</a>
+      <a href="#">Visualizations</a>
+      <a href="#">Settings</a>
+      <button id="clear-chat-btn">Clear Chat</button>
+    </nav>
+    <div class="left-panel">
+      <div id="welcome-text">
+        <h2>Welcome to</h2>
+        <h1>Floatchat</h1>
+        <p>Your AI guide to ARGO floats and ocean insights.</p>
+        <div id="ai-desc-bubble">
+          <p>Floatchat AI can help you:</p>
+          <ul>
+            <li>Query ARGO float data using natural language.</li>
+            <li>Visualize salinity, temperature, and BGC parameters.</li>
+            <li>Compare profiles across regions and time periods.</li>
+            <li>Locate nearest ARGO floats to any location.</li>
+            <li>Explore oceanographic datasets effortlessly.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="chat-container">
+        <div id="output-bubble"></div>
+        <div class="chat-input-container">
+          <textarea id="chat-input" placeholder="Type here to begin ..." rows="1"></textarea>
+          <button id="send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div id="plotly-container"></div>
+    <div id="leaflet-container"></div>
+  </div>
+</main>
+<footer>© 2025 Floatchat</footer>
+<script>
+/* Navigation Mode Switching */
+const dashboardLink = document.getElementById('dashboard-link');
+const chatLink = document.getElementById('chat-link');
+const body = document.body;
+const rightPanel = document.querySelector('.right-panel');
+const welcomeText = document.getElementById('welcome-text');
+const aiDesc = document.getElementById('ai-desc-bubble');
+const outputBubble = document.getElementById('output-bubble');
+const chatInput = document.getElementById('chat-input');
+const chatContainer = document.querySelector('.chat-container');
+let chatHasResponse = false;
+
+function updateActiveNav(activeLink) {
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  activeLink.classList.add('active');
+}
+
+function switchToDashboard() {
+  body.classList.remove('chat-mode', 'chat-mode-vis');
+  updateActiveNav(dashboardLink);
+  welcomeText.style.display = 'block';
+  aiDesc.style.display = 'block';
+  setTimeout(() => {
+    welcomeText.classList.remove('fade-out');
+    aiDesc.classList.remove('fade-out');
+  }, 50);
+  outputBubble.style.display = 'none';
+  outputBubble.classList.remove('show');
+  rightPanel.style.display = 'flex';
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  chatInput.focus();
+  if (map) map.invalidateSize();
+}
+
+function switchToChat() {
+  if (chatHasResponse) {
+    body.classList.remove('chat-mode');
+    body.classList.add('chat-mode-vis');
+    welcomeText.style.display = 'none';
+    aiDesc.style.display = 'none';
+    outputBubble.style.display = 'flex';
+    outputBubble.classList.add('show');
+    rightPanel.style.display = 'flex';
+    setTimeout(() => {
+      Plotly.Plots.resize('plotly-container');
+      if (map) map.invalidateSize();
+    }, 100);
+  } else {
+    body.classList.remove('chat-mode-vis');
+    body.classList.add('chat-mode');
+    welcomeText.style.display = 'none';
+    aiDesc.style.display = 'none';
+    outputBubble.style.display = 'flex';
+    outputBubble.classList.add('show');
+    rightPanel.style.display = 'none';
+  }
+  updateActiveNav(chatLink);
+  chatInput.focus();
+}
+
+function switchToChatWithVisualizations() {
+  body.classList.remove('chat-mode');
+  body.classList.add('chat-mode-vis');
+  updateActiveNav(chatLink);
+  welcomeText.style.display = 'none';
+  aiDesc.style.display = 'none';
+  outputBubble.style.display = 'flex';
+  outputBubble.classList.add('show');
+  rightPanel.style.display = 'flex';
+  chatInput.focus();
+  setTimeout(() => {
+    Plotly.Plots.resize('plotly-container');
+    if (map) map.invalidateSize();
+  }, 100);
+}
+
+/* Navigation Event Listeners */
+dashboardLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchToDashboard();
+});
+
+chatLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  switchToChat();
+});
+
+/* Chat */
+const sendBtn = document.getElementById('send-btn');
+
+function appendMessage(content, className) {
+  const msg = document.createElement('div');
+  msg.className = `message ${className}`;
+  msg.textContent = content;
+  outputBubble.appendChild(msg);
+  setTimeout(() => { 
+    msg.style.opacity = 1; 
+    outputBubble.scrollTop = outputBubble.scrollHeight; 
+  }, 50);
+}
+
+sendBtn.addEventListener('click', async () => {
+  let text = chatInput.value.trim();
+  if (!text) return;
+  
+  // Switch to chat mode initially (centered)
+  switchToChat();
+  
+  appendMessage(text, 'user-message');
+  
+  try {
+    const response = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: text })
+    });
+    const data = await response.json();
+    appendMessage(`AI: ${data.response}`, 'ai-message');
+    chatHasResponse = true;
+    // Wait 2 seconds before transitioning to chat-mode-vis
+    setTimeout(() => {
+      switchToChatWithVisualizations();
+      updatePlot(data.results || {});
+      updateHeatmap(data.results?.locations || []);
+    }, 2000);
+  } catch (error) {
+    appendMessage("AI: Sorry, there was an error processing your query.", 'ai-message');
+    chatHasResponse = true;
+    // Wait 2 seconds before transitioning to chat-mode-vis
+    setTimeout(() => {
+      switchToChatWithVisualizations();
+      updateHeatmap([]);
+    }, 2000);
+  }
+  
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  chatInput.focus();
+});
+
+/* Auto-resize textarea */
+chatInput.addEventListener("input", () => {
+  chatInput.style.height = "auto";
+  const max = 220;
+  const newHeight = Math.min(chatInput.scrollHeight, max);
+  chatInput.style.height = newHeight + "px";
+  chatInput.style.overflowY = chatInput.scrollHeight > max ? "auto" : "hidden";
+});
+
+/* Enter sends (Shift+Enter = newline) */
+chatInput.addEventListener('keypress', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
+
+/* Clear Chat */
+document.getElementById('clear-chat-btn').addEventListener('click', () => {
+  outputBubble.innerHTML = '';
+  outputBubble.classList.remove('show');
+  outputBubble.style.display = 'none';
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  chatHasResponse = false;
+  switchToDashboard();
+});
+
+/* Plotly (used only in chat-mode-vis) */
+function updatePlot(data) {
+  const trace = {
+    x: data.timestamps || [1,2,3,4], 
+    y: data.salinity || [10,15,13,17], 
+    type: 'scatter', 
+    mode: 'lines+markers', 
+    marker: {color: '#00e5ff'},
+    name: 'Salinity Profile',
+    hoverinfo: 'x+y',
+    text: (data.timestamps || []).map((t, i) => `Time: ${t}<br>Salinity: ${(data.salinity || [])[i]} psu`)
+  };
+  const layout = {
+    title: { text: 'Salinity vs Time', font: { color: body.classList.contains('dark') ? 'white' : 'black' } },
+    xaxis: { title: 'Time', rangeslider: { visible: true } },
+    yaxis: { title: 'Salinity (psu)' },
+    margin: { t: 40, l: 50, r: 50, b: 50 },
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: body.classList.contains('dark') ? 'white' : 'black' },
+    hovermode: 'closest',
+    autosize: true
+  };
+  Plotly.newPlot('plotly-container', [trace], layout);
+  Plotly.Plots.resize('plotly-container');
+}
+
+// Initialize default Plotly graph
+Plotly.newPlot('plotly-container', [{
+  x: [1,2,3,4], 
+  y: [10,15,13,17], 
+  type: 'scatter', 
+  mode: 'lines+markers', 
+  marker: {color: '#00e5ff'},
+  name: 'Salinity Profile'
+}], {
+  title: { text: 'Salinity vs Time', font: { color: 'white' } },
+  xaxis: { title: 'Time' },
+  yaxis: { title: 'Salinity (psu)' },
+  margin: { t: 40, l: 50, r: 50, b: 50 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: 'white' },
+  autosize: true
+});
+
+/* Leaflet Heatmap */
+const map = L.map('leaflet-container').setView([20,80],3);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+let heatLayer;
+
+function updateHeatmap(locations) {
+  // Remove existing heatmap layer
+  if (heatLayer) {
+    map.removeLayer(heatLayer);
+  }
+  // Prepare heatmap data: [lat, lng, intensity]
+  const heatData = locations && locations.length > 0 
+    ? locations.map(loc => [loc.lat, loc.lon, 1])
+    : [[20, 80, 1]]; // Fallback point
+  // Create heatmap layer
+  heatLayer = L.heatLayer(heatData, {
+    radius: 25,
+    blur: 15,
+    maxZoom: 17,
+    gradient: { 0.4: '#00e5ff', 0.65: '#0077be', 1: '#004e92' }
+  }).addTo(map);
+  // Center map on first location or fallback
+  const center = locations && locations.length > 0 ? [locations[0].lat, locations[0].lon] : [20, 80];
+  map.setView(center, 5);
+  map.invalidateSize();
+}
+
+// Initialize heatmap with sample data
+updateHeatmap([]);
+
+/* Theme Toggle */
+const themeToggle = document.getElementById('theme-toggle');
+function setTheme(theme) {
+  // Preserve existing classes, only toggle dark/light
+  body.classList.remove('dark', 'light');
+  body.classList.add(theme);
+  localStorage.setItem('theme', theme);
+  themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+  // Update Plotly theme and resize if in chat-mode-vis
+  if (body.classList.contains('chat-mode-vis')) {
+    const fontColor = theme === 'dark' ? 'white' : 'black';
+    Plotly.relayout('plotly-container', { 
+      'title.font.color': fontColor, 
+      'font.color': fontColor 
+    });
+    setTimeout(() => {
+      Plotly.Plots.resize('plotly-container');
+      if (map) map.invalidateSize();
+    }, 100);
+  }
+}
+themeToggle.addEventListener('click', () => {
+  const newTheme = body.classList.contains('dark') ? 'light' : 'dark';
+  setTheme(newTheme);
+});
+
+// Load saved theme
+const savedTheme = localStorage.getItem('theme') || 'dark';
+setTheme(savedTheme);
+</script>
+</body>
+</html>
